@@ -10,25 +10,25 @@
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
         <RelativePanel HorizontalAlignment="Center" VerticalAlignment="Center">
             <RelativePanel x:Name="PanelGPIO" Width="200">
-                <TextBlock x:Name="TextMain" Text="Starting..." 
+                <TextBlock x:Name="TextMain" Text="Starting..."
                            RelativePanel.AlignHorizontalCenterWithPanel="True"/>
-                <Button x:Name="ButtonA" Content="A" Click="ButtonA_Click" 
+                <Button x:Name="ButtonA" Content="A" Click="ButtonA_Click"
                         RelativePanel.Below="TextMain"
                         RelativePanel.LeftOf="ButtonB"/>
-                <Button x:Name="ButtonB" Content="B" Click="ButtonB_Click" 
+                <Button x:Name="ButtonB" Content="B" Click="ButtonB_Click"
                         RelativePanel.Below="TextMain"
                         RelativePanel.AlignHorizontalCenterWithPanel="True"/>
-                <Button x:Name="ButtonE" Content="E" Click="ButtonE_Click" 
+                <Button x:Name="ButtonE" Content="E" Click="ButtonE_Click"
                         RelativePanel.Below="TextMain"
                         RelativePanel.RightOf="ButtonB"/>
 
-                <TextBlock x:Name="TextA" Text="U" 
+                <TextBlock x:Name="TextA" Text="U"
                        RelativePanel.Below="ButtonA"
                        RelativePanel.AlignHorizontalCenterWith="ButtonA"/>
-                <TextBlock x:Name="TextB" Text="U" 
+                <TextBlock x:Name="TextB" Text="U"
                        RelativePanel.Below="ButtonB"
                        RelativePanel.AlignHorizontalCenterWith="ButtonB"/>
-                <TextBlock x:Name="TextE" Text="U" 
+                <TextBlock x:Name="TextE" Text="U"
                        RelativePanel.Below="ButtonE"
                        RelativePanel.AlignHorizontalCenterWith="ButtonE"/>
             </RelativePanel>
@@ -49,7 +49,7 @@
                 <Rectangle x:Name="RectangleRight" Width="50" Height="50" Fill="LightGray"
                            RelativePanel.RightOf="RectangleCenter" RelativePanel.AlignVerticalCenterWithPanel="True"/>
             </RelativePanel>
-                <TextBlock x:Name="TextXbox" RelativePanel.Below="PanelXbox" Text="Looking for Xbox Controller" />
+            <TextBlock x:Name="TextXbox" RelativePanel.Below="PanelXbox" Text="Looking for Xbox Controller" />
         </RelativePanel>
     </Grid>
 </Page>
