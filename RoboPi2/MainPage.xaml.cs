@@ -5,17 +5,13 @@ using Windows.Devices.Enumeration;
 using Windows.Devices.Gpio;
 using Windows.Devices.HumanInterfaceDevice;
 using Windows.Foundation.Metadata;
+using Windows.Gaming.Input;
 using Windows.UI.Xaml;
 using Windows.UI.Xaml.Controls;
 using Windows.UI.Xaml.Navigation;
 
-// The Blank Page item template is documented at http://go.microsoft.com/fwlink/?LinkId=402352&clcid=0x409
-
 namespace RoboPi2
 {
-    /// <summary>
-    /// An empty page that can be used on its own or navigated to within a Frame.
-    /// </summary>
     public sealed partial class MainPage : Page
     {
         private bool isBlinking = false;
@@ -27,16 +23,24 @@ namespace RoboPi2
         private GpioPin motor2A;
         private GpioPin motor2B;
         private GpioPin motor2E;
-        private DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        private DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
         private DispatcherTimer ledTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
+
+        private static XboxHidController controller;
+        private readonly GpioController gpio;
 
         public MainPage()
         {
             this.InitializeComponent();
 
+            timer.Tick += Timer_Tick;
+
+            Gamepad.GamepadAdded += Gamepad_GamepadAdded;
+            Gamepad.GamepadRemoved += Gamepad_GamepadRemoved;
+
             if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioController"))
             {
-                var gpio = GpioController.GetDefault();
+                gpio = GpioController.GetDefault();
 
                 if (gpio == null)
                 {
@@ -61,7 +65,6 @@ namespace RoboPi2
                 motor2E.SetDriveMode(GpioPinDriveMode.Output);
                 TextMain.Text = "GPIO set";
 
-                timer.Tick += Timer_Tick;
                 ledTimer.Tick += LedTimer_Tick;
             }
         }
@@ -70,16 +73,16 @@ namespace RoboPi2
         {
             base.OnNavigatedTo(e);
 
+            timer.Start();
             try
             {
-                ledTimer.Start();
-                timer.Start();
 
                 isBlinking = true;
 
-
-                if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin"))
+                if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
                 {
+                    ledTimer.Start();
+
                     await Task.Delay(1000);
                     TextMain.Text = "Motor on";
                     motor1A.Write(GpioPinValue.High);
@@ -135,17 +138,101 @@ namespace RoboPi2
             }
         }
 
-        private async void Timer_Tick(object sender, object e)
+        private void Timer_Tick(object sender, object e)
         {
-            timer.Stop();
-            if (!await XboxJoystickInit())
+            RectangleCenter.Opacity = 0.5;
+            RectangleUp.Opacity = 0.5;
+            RectangleDown.Opacity = 0.5;
+            RectangleLeft.Opacity = 0.5;
+            RectangleRight.Opacity = 0.5;
+
+            if (Gamepad.Gamepads.Count > 0)
             {
-                timer.Start();
+                var gamepad = Gamepad.Gamepads[0];
+                var reading = gamepad.GetCurrentReading();
+
+                var isMoving = false;
+                if (reading.Buttons.HasFlag(GamepadButtons.DPadUp))
+                {
+                    if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
+                    {
+                        motor1A.Write(GpioPinValue.High);
+
+                        motor1B.Write(GpioPinValue.Low);
+                        motor1E.Write(GpioPinValue.High);
+                        motor2A.Write(GpioPinValue.High);
+                        motor2B.Write(GpioPinValue.Low);
+                        motor2E.Write(GpioPinValue.High);
+                    }
+                    RectangleUp.Opacity = 1;
+                    isMoving = true;
+                }
+                else if (reading.Buttons.HasFlag(GamepadButtons.DPadDown))
+                {
+                    if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
+                    {
+                        motor1A.Write(GpioPinValue.Low);
+                        motor1B.Write(GpioPinValue.High);
+                        motor1E.Write(GpioPinValue.High);
+                        motor2A.Write(GpioPinValue.Low);
+                        motor2B.Write(GpioPinValue.High);
+                        motor2E.Write(GpioPinValue.High);
+                    }
+                    RectangleDown.Opacity = 1;
+                    isMoving = true;
+                }
+                if (reading.Buttons.HasFlag(GamepadButtons.DPadLeft))
+                {
+                    if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
+                    {
+                        motor1A.Write(GpioPinValue.Low);
+                        motor1B.Write(GpioPinValue.High);
+                        motor1E.Write(GpioPinValue.High);
+                        motor2A.Write(GpioPinValue.High);
+                        motor2B.Write(GpioPinValue.Low);
+                        motor2E.Write(GpioPinValue.High);
+                    }
+                    RectangleLeft.Opacity = 1;
+                    isMoving = true;
+                }
+                else if (reading.Buttons.HasFlag(GamepadButtons.DPadRight))
+                {
+                    if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
+                    {
+                        motor1A.Write(GpioPinValue.High);
+                        motor1B.Write(GpioPinValue.Low);
+                        motor1E.Write(GpioPinValue.High);
+                        motor2A.Write(GpioPinValue.Low);
+                        motor2B.Write(GpioPinValue.High);
+                        motor2E.Write(GpioPinValue.High);
+                    }
+                    RectangleRight.Opacity = 1;
+                    isMoving = true;
+                }
+
+                if (!isMoving)
+                {
+                    isBlinking = false;
+                    if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
+                    {
+                        motor1E.Write(GpioPinValue.Low);
+                        motor2E.Write(GpioPinValue.Low);
+                    }
+                    RectangleCenter.Opacity = 1;
+                }
             }
-            else
-            {
-                TextXbox.Visibility = Visibility.Collapsed;
-            }
+
+            UpdateTexts();
+        }
+
+        private void Gamepad_GamepadRemoved(object sender, Gamepad e)
+        {
+            Debug.WriteLine("Gamepad removed");
+        }
+
+        private void Gamepad_GamepadAdded(object sender, Gamepad e)
+        {
+            Debug.WriteLine("Gamepad added");
         }
 
         private void ButtonA_Click(object sender, RoutedEventArgs e)
@@ -186,7 +273,7 @@ namespace RoboPi2
 
         private void UpdateTexts()
         {
-            if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin"))
+            if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
             {
                 TextA.Text = motor1A.Read() == GpioPinValue.High ? "H" : "L";
                 TextB.Text = motor1B.Read() == GpioPinValue.High ? "H" : "L";
@@ -194,7 +281,6 @@ namespace RoboPi2
             }
         }
 
-        private static XboxHidController controller;
         public async Task<bool> XboxJoystickInit()
         {
             string deviceSelector = HidDevice.GetDeviceSelector(0x01, 0x05);
@@ -206,7 +292,7 @@ namespace RoboPi2
             }
 
             Debug.WriteLine($"Found {deviceInformationCollection.Count} devices");
-            foreach (DeviceInformation d in deviceInformationCollection)
+            foreach (var d in deviceInformationCollection)
             {
                 Debug.WriteLine("Device ID: " + d.Id);
 
@@ -236,90 +322,11 @@ namespace RoboPi2
                     Debug.WriteLine("DeviceAccess: " + deviceAccessStatus.ToString());
 
                     controller = new XboxHidController(hidDevice);
-                    controller.DirectionChanged += Controller_DirectionChanged;
+                    //controller.DirectionChanged += Controller_DirectionChanged;
                     return true;
                 }
             }
             return false;
-        }
-
-        private async void Controller_DirectionChanged(ControllerVector sender)
-        {
-            await Dispatcher.RunAsync(Windows.UI.Core.CoreDispatcherPriority.Normal, () =>
-            {
-                if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin"))
-                {
-                    RectangleCenter.Opacity = 0.5;
-                    RectangleUp.Opacity = 0.5;
-                    RectangleDown.Opacity = 0.5;
-                    RectangleLeft.Opacity = 0.5;
-                    RectangleRight.Opacity = 0.5;
-                    if (sender.Magnitude > 5000)
-                    {
-                        isBlinking = true;
-
-                        switch (sender.Direction)
-                        {
-                            case ControllerDirection.UpLeft:
-                            case ControllerDirection.UpRight:
-                            case ControllerDirection.Up:
-                                motor1A.Write(GpioPinValue.High);
-
-                                motor1B.Write(GpioPinValue.Low);
-                                motor1E.Write(GpioPinValue.High);
-                                motor2A.Write(GpioPinValue.High);
-                                motor2B.Write(GpioPinValue.Low);
-                                motor2E.Write(GpioPinValue.High);
-                                RectangleUp.Opacity = 1;
-                                break;
-                            case ControllerDirection.DownLeft:
-                            case ControllerDirection.DownRight:
-                            case ControllerDirection.Down:
-                                motor1A.Write(GpioPinValue.Low);
-                                motor1B.Write(GpioPinValue.High);
-                                motor1E.Write(GpioPinValue.High);
-                                motor2A.Write(GpioPinValue.Low);
-                                motor2B.Write(GpioPinValue.High);
-                                motor2E.Write(GpioPinValue.High);
-                                RectangleDown.Opacity = 1;
-                                break;
-                            case ControllerDirection.Left:
-                                motor1A.Write(GpioPinValue.Low);
-                                motor1B.Write(GpioPinValue.High);
-                                motor1E.Write(GpioPinValue.High);
-                                motor2A.Write(GpioPinValue.High);
-                                motor2B.Write(GpioPinValue.Low);
-                                motor2E.Write(GpioPinValue.High);
-                                RectangleLeft.Opacity = 1;
-                                break;
-                            case ControllerDirection.Right:
-                                motor1A.Write(GpioPinValue.High);
-                                motor1B.Write(GpioPinValue.Low);
-                                motor1E.Write(GpioPinValue.High);
-                                motor2A.Write(GpioPinValue.Low);
-                                motor2B.Write(GpioPinValue.High);
-                                motor2E.Write(GpioPinValue.High);
-                                RectangleRight.Opacity = 1;
-                                break;
-                            case ControllerDirection.None:
-                                isBlinking = false;
-                                motor1E.Write(GpioPinValue.Low);
-                                motor2E.Write(GpioPinValue.Low);
-                                RectangleCenter.Opacity = 1;
-                                break;
-                        }
-                    }
-                    else
-                    {
-                        isBlinking = false;
-                        motor1E.Write(GpioPinValue.Low);
-                        motor2E.Write(GpioPinValue.Low);
-                        RectangleCenter.Opacity = 1;
-                    }
-                    UpdateTexts();
-                }
-            });
-
         }
     }
 }
