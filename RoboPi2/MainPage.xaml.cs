@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Threading.Tasks;
-using Windows.Devices.Enumeration;
 using Windows.Devices.Gpio;
-using Windows.Devices.HumanInterfaceDevice;
 using Windows.Foundation.Metadata;
 using Windows.Gaming.Input;
 using Windows.UI.Xaml;
@@ -26,7 +24,6 @@ namespace RoboPi2
         private DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
         private DispatcherTimer ledTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(30) };
 
-        private static XboxHidController controller;
         private readonly GpioController gpio;
 
         public MainPage()
@@ -49,12 +46,14 @@ namespace RoboPi2
                 }
 
                 led1 = gpio.OpenPin(12);
+                // Left motor
                 motor1A = gpio.OpenPin(23);
                 motor1B = gpio.OpenPin(24);
                 motor1E = gpio.OpenPin(25);
-                motor2A = gpio.OpenPin(0);
-                motor2B = gpio.OpenPin(5);
-                motor2E = gpio.OpenPin(6);
+                // Right motor
+                motor2A = gpio.OpenPin(5);
+                motor2B = gpio.OpenPin(6);
+                motor2E = gpio.OpenPin(13);
 
                 led1.SetDriveMode(GpioPinDriveMode.Output);
                 motor1A.SetDriveMode(GpioPinDriveMode.Output);
@@ -76,26 +75,27 @@ namespace RoboPi2
             timer.Start();
             try
             {
-
                 isBlinking = true;
 
                 if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
                 {
+                    // Do some action to signal that everything is initialized correctly
                     ledTimer.Start();
 
                     await Task.Delay(1000);
                     TextMain.Text = "Motor on";
-                    motor1A.Write(GpioPinValue.High);
 
+                    // Turn right
+                    motor1A.Write(GpioPinValue.High);
                     motor1B.Write(GpioPinValue.Low);
                     motor1E.Write(GpioPinValue.High);
                     motor2A.Write(GpioPinValue.Low);
                     motor2B.Write(GpioPinValue.High);
                     motor2E.Write(GpioPinValue.High);
                     UpdateTexts();
-
                     await Task.Delay(200);
 
+                    // Turn left
                     motor1A.Write(GpioPinValue.Low);
                     motor1B.Write(GpioPinValue.High);
                     motor1E.Write(GpioPinValue.High);
@@ -103,9 +103,9 @@ namespace RoboPi2
                     motor2B.Write(GpioPinValue.Low);
                     motor2E.Write(GpioPinValue.High);
                     UpdateTexts();
-
                     await Task.Delay(200);
 
+                    // Stop
                     motor1E.Write(GpioPinValue.Low);
                     motor2E.Write(GpioPinValue.Low);
                     UpdateTexts();
@@ -122,17 +122,19 @@ namespace RoboPi2
 
         private void LedTimer_Tick(object sender, object e)
         {
-            if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin"))
+            if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && led1 != null)
             {
-                var led = led1.Read();
+                var ledState = led1.Read();
 
-                if (!isBlinking && led == GpioPinValue.Low)
+                if (!isBlinking && ledState == GpioPinValue.Low)
                 {
+                    // Idle state: HIGH
                     led1.Write(GpioPinValue.High);
                 }
                 else if (isBlinking)
                 {
-                    if (led == GpioPinValue.Low) led1.Write(GpioPinValue.High);
+                    // Blinking
+                    if (ledState == GpioPinValue.Low) led1.Write(GpioPinValue.High);
                     else led1.Write(GpioPinValue.Low);
                 }
             }
@@ -148,6 +150,8 @@ namespace RoboPi2
 
             if (Gamepad.Gamepads.Count > 0)
             {
+                TextMain.Text = "Gamepad detected";
+
                 var gamepad = Gamepad.Gamepads[0];
                 var reading = gamepad.GetCurrentReading();
 
@@ -157,7 +161,6 @@ namespace RoboPi2
                     if (ApiInformation.IsTypePresent("Windows.Devices.Gpio.GpioPin") && gpio != null)
                     {
                         motor1A.Write(GpioPinValue.High);
-
                         motor1B.Write(GpioPinValue.Low);
                         motor1E.Write(GpioPinValue.High);
                         motor2A.Write(GpioPinValue.High);
@@ -220,6 +223,10 @@ namespace RoboPi2
                     }
                     RectangleCenter.Opacity = 1;
                 }
+                else
+                {
+                    isBlinking = true;
+                }
             }
 
             UpdateTexts();
@@ -279,54 +286,6 @@ namespace RoboPi2
                 TextB.Text = motor1B.Read() == GpioPinValue.High ? "H" : "L";
                 TextE.Text = motor1E.Read() == GpioPinValue.High ? "H" : "L";
             }
-        }
-
-        public async Task<bool> XboxJoystickInit()
-        {
-            string deviceSelector = HidDevice.GetDeviceSelector(0x01, 0x05);
-            var deviceInformationCollection = await DeviceInformation.FindAllAsync(deviceSelector);
-
-            if (deviceInformationCollection.Count == 0)
-            {
-                return false;
-            }
-
-            Debug.WriteLine($"Found {deviceInformationCollection.Count} devices");
-            foreach (var d in deviceInformationCollection)
-            {
-                Debug.WriteLine("Device ID: " + d.Id);
-
-                HidDevice hidDevice = await HidDevice.FromIdAsync(d.Id, Windows.Storage.FileAccessMode.Read);
-
-                if (hidDevice == null)
-                {
-                    try
-                    {
-                        var deviceAccessStatus = DeviceAccessInformation.CreateFromId(d.Id).CurrentStatus;
-
-                        if (!deviceAccessStatus.Equals(DeviceAccessStatus.Allowed))
-                        {
-                            Debug.WriteLine("DeviceAccess: " + deviceAccessStatus.ToString());
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Debug.WriteLine("Xbox init - " + e.Message);
-                    }
-
-                    Debug.WriteLine("Failed to connect to the controller!");
-                }
-                else
-                {
-                    var deviceAccessStatus = DeviceAccessInformation.CreateFromId(d.Id).CurrentStatus;
-                    Debug.WriteLine("DeviceAccess: " + deviceAccessStatus.ToString());
-
-                    controller = new XboxHidController(hidDevice);
-                    //controller.DirectionChanged += Controller_DirectionChanged;
-                    return true;
-                }
-            }
-            return false;
         }
     }
 }
